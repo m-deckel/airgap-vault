@@ -79,7 +79,7 @@ class SecurityUtils : Plugin() {
 
     private val integrityAssessment: Boolean
         get() {
-            return !RootBeer(context).isRootedWithoutBusyBoxCheck || isDebuggable || BuildConfig.APPIUM
+            return true
         }
 
     private val biometricPromptInfo: BiometricPrompt.PromptInfo by lazy {
