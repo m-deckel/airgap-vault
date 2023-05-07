@@ -70,7 +70,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         }
     }
 
-    fun readString(fileKey: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    fun readString(fileKey: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         when {
             keyStore.containsAlias(keyStoreAlias) -> {
                 readFromSecureStorage(fileKey, success, error, requestAuthentication)
@@ -104,11 +104,11 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         return generatePassword().also { generatePasswordKey(recoveryKeyFile, it) }
     }
 
-    fun writeString(fileKey: String, fileData: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    fun writeString(fileKey: String, fileData: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         writeToSecureStorage(fileKey, fileData, success, error, requestAuthentication)
     }
 
-    fun writeRecoverableString(fileKey: String, fileData: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    fun writeRecoverableString(fileKey: String, fileData: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         val recoveryPassword = setupRecoveryPassword()
         val recoveryKey = retrieveRecoveryKey(recoveryPassword)
         val recoverySecureFileStorage = SecureFileStorage(recoveryKey, salt, baseDir)
@@ -130,7 +130,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         secureFileStorage.remove(fileKey = fileKey, success = success, error = error)
     }
 
-    private fun readFromSecureStorage(fileKey: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    private fun readFromSecureStorage(fileKey: String, success: (String) -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         val secureFileStorage = SecureFileStorage(getMasterKey(Cipher.DECRYPT_MODE), salt, baseDir)
 
         if (isParanoia) {
@@ -163,7 +163,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         }
     }
 
-    private fun recoverString(fileKey: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    private fun recoverString(fileKey: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         val error: (Exception) -> Unit = { exception ->
             if (exception is BadPaddingException) {
                 error(Exception(Errors.ITEM_CORRUPTED))
@@ -174,7 +174,7 @@ class Storage(private val context: Context, private val storageAlias: String, pr
         var authAttemptNo = 0
         showRecoveryAlert(
                 success = { password ->
-                    requestAuthentication(++authAttemptNo) {
+                    requestAuthentication(++authAttemptNo, {
                         try {
                             val recoveryKey = retrieveRecoveryKey(password)
                             val recoverySecureFileStorage = SecureFileStorage(recoveryKey, salt, baseDir)
@@ -196,12 +196,12 @@ class Storage(private val context: Context, private val storageAlias: String, pr
                         } catch (e: Exception) {
                             error(e)
                         }
-                    }
+                    }, { error(Exception(Errors.AUTHENTICATION_CANCELED)) })
                 }, error = error
         )
     }
 
-    private fun writeToSecureStorage(fileKey: String, fileData: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit) -> Unit) {
+    private fun writeToSecureStorage(fileKey: String, fileData: String, success: () -> Unit, error: (Exception) -> Unit, requestAuthentication: (Int, () -> Unit, () -> Unit) -> Unit) {
         // check if we have a master key, else generate it
         if (!keyStore.containsAlias(keyStoreAlias)) {
             Log.d("SecureStorage", "Alias unknown, generating key...")
@@ -367,13 +367,18 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     private fun generateKey(alias: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val keyBuilder = KeyGenParameterSpec.Builder(alias,
-                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                    .setDigests(KeyProperties.DIGEST_SHA512)
-                    .setUserAuthenticationRequired(true)
-                    .setUserAuthenticationValidityDurationSeconds(15) // TODO: should this be a parameter for users to choose?
-                    .setRandomizedEncryptionRequired(true)
-                    .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).apply {
+                setDigests(KeyProperties.DIGEST_SHA512)
+                setUserAuthenticationRequired(true)
+
+                // TODO: should this be a parameter for users to choose?
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) setUserAuthenticationParameters(15, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
+                else setUserAuthenticationValidityDurationSeconds(15)
+
+                setRandomizedEncryptionRequired(true)
+                setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+            }
             val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, Constants.ANDROID_KEY_STORE)
             keyGenerator.init(keyBuilder.build())
             keyGenerator.generateKey()
@@ -403,6 +408,8 @@ class Storage(private val context: Context, private val storageAlias: String, pr
     }
 
     private fun generatePasswordKey(passwordFile: SecureFile, passphraseOrPin: String) {
+        if (passphraseOrPin.isBlank()) return
+
         val salt = ByteArray(Constants.KEY_SIZE / 8).also { SecureRandom().nextBytes(it) }
         val inputSecretKey = generateSecretKey(passphraseOrPin, salt)
 

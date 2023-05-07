@@ -1,8 +1,14 @@
-import { AppInfoPlugin } from '@airgap/angular-core'
-import { AppPlugin, ClipboardPlugin, SplashScreenPlugin, StatusBarPlugin } from '@capacitor/core'
+// tslint:disable: max-classes-per-file
+import { AppInfoPlugin, IsolatedModulesPlugin, ZipPlugin } from '@airgap/angular-core'
+import { AppPlugin } from '@capacitor/app'
+import { ClipboardPlugin } from '@capacitor/clipboard'
+import { FilesystemPlugin } from '@capacitor/filesystem'
+import { SplashScreenPlugin } from '@capacitor/splash-screen'
+import { StatusBarPlugin } from '@capacitor/status-bar'
+
+import { SaplingNativePlugin, SecurityUtilsPlugin } from '../src/app/capacitor-plugins/definitions'
 
 import { newSpy } from './unit-test-helper'
-import { SaplingPlugin, SecurityUtilsPlugin } from 'src/app/capacitor-plugins/definitions'
 
 export function createAppSpy(): AppPlugin {
   return jasmine.createSpyObj('AppPlugin', ['addListener', 'openUrl'])
@@ -39,7 +45,7 @@ export function createSecurityUtilsSpy(): SecurityUtilsPlugin {
   ])
 }
 
-export function createSaplingSpy(): SaplingPlugin {
+export function createSaplingSpy(): SaplingNativePlugin {
   return jasmine.createSpyObj('SaplingPlugin', ['isSupported'])
 }
 
@@ -49,6 +55,18 @@ export function createSplashScreenSpy(): SplashScreenPlugin {
 
 export function createStatusBarSpy(): StatusBarPlugin {
   return jasmine.createSpyObj('StatusBarPlugin', ['setStyle', 'setBackgroundColor'])
+}
+
+export function createFilesystemSpy(): FilesystemPlugin {
+  return jasmine.createSpyObj('FilesystemPlugin', ['stat', 'mkdir', 'rmdir', 'readdir', 'readFile', 'copy'])
+}
+
+export function createZipSpy(): ZipPlugin {
+  return jasmine.createSpyObj('ZipPlugin', ['unzip'])
+}
+
+export function createIsolatedModulesSpy(): IsolatedModulesPlugin {
+  return jasmine.createSpyObj('IsolatedModulesPlugin', ['loadModules', 'callMethod'])
 }
 
 export class AppInfoPluginMock {
@@ -61,6 +79,10 @@ export class AppInfoPluginMock {
       versionCode: 0
     })
   )
+}
+
+export class AppLauncherMock {
+  public openUrl: jasmine.Spy = newSpy('openUrl', Promise.resolve())
 }
 
 export class SaplingPluginMock {

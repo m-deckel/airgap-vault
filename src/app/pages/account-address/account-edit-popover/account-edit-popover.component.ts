@@ -1,21 +1,24 @@
-import { Component } from '@angular/core'
+import { Component, OnInit } from '@angular/core'
 import { AlertController, PopoverController } from '@ionic/angular'
 import { TranslateService } from '@ngx-translate/core'
-import { AirGapWallet } from '@airgap/coinlib-core'
+import { AirGapWallet, ProtocolSymbols } from '@airgap/coinlib-core'
 import { first } from 'rxjs/operators'
-
 import { ClipboardService } from '@airgap/angular-core'
 import { ErrorCategory, handleErrorLocal } from '../../../services/error-handler/error-handler.service'
 import { SecretsService } from '../../../services/secrets/secrets.service'
+import { NavigationService } from 'src/app/services/navigation/navigation.service'
 
 @Component({
   selector: 'airgap-account-edit-popover',
   templateUrl: 'account-edit-popover.component.html',
   styleUrls: ['./account-edit-popover.component.scss']
 })
-export class AccountEditPopoverComponent {
-  private readonly wallet: AirGapWallet
+export class AccountEditPopoverComponent implements OnInit {
+  public readonly wallet: AirGapWallet
+  public protocolIdentifier: ProtocolSymbols
+
   private readonly onDelete: Function
+  private readonly openAddressQR: () => void | undefined
   private readonly getWalletShareUrl: () => Promise<string>
 
   constructor(
@@ -23,8 +26,13 @@ export class AccountEditPopoverComponent {
     private readonly clipboardService: ClipboardService,
     private readonly secretsService: SecretsService,
     private readonly popoverController: PopoverController,
-    private readonly translateService: TranslateService
+    private readonly translateService: TranslateService,
+    private readonly navigationService: NavigationService
   ) {}
+
+  public async ngOnInit() {
+    this.protocolIdentifier = await this.wallet.protocol.getIdentifier()
+  }
 
   public async copyAddressToClipboard(): Promise<void> {
     await this.clipboardService.copyAndShowToast(
@@ -40,6 +48,18 @@ export class AccountEditPopoverComponent {
       await this.getWalletShareUrl(),
       this.translateService.instant('wallet-edit-delete-popover.confirm_sync_code_copy')
     )
+
+    await this.popoverController.dismiss()
+  }
+
+  public async showAddressQR(): Promise<void> {
+    this.openAddressQR()
+
+    await this.popoverController.dismiss()
+  }
+
+  public async openAddressExplorer(): Promise<void> {
+    this.navigationService.routeWithState('/address-explorer', { wallet: this.wallet })
 
     await this.popoverController.dismiss()
   }
@@ -73,7 +93,6 @@ export class AccountEditPopoverComponent {
             {
               text: deleteButton,
               handler: (): void => {
-                alert.present().catch(handleErrorLocal(ErrorCategory.IONIC_ALERT))
                 this.secretsService
                   .removeWallet(this.wallet)
                   .then(() => {

@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core'
 import { BIP32Interface, fromSeed } from 'bip32'
 import { entropyToMnemonic, mnemonicToSeed } from 'bip39'
 
-import { Secret } from '../../models/secret'
+import { MnemonicSecret } from '../../models/secret'
 import { isSecretMigrated, isWalletMigrated } from '../../utils/migration'
 import { ErrorCategory, handleErrorLocal } from '../error-handler/error-handler.service'
 import { NavigationService } from '../navigation/navigation.service'
@@ -15,7 +15,7 @@ import { SecretsService } from '../secrets/secrets.service'
 export class MigrationService {
   constructor(private readonly secretsService: SecretsService, private readonly navigationService: NavigationService) {}
 
-  public async runSecretsMigration(secrets: Secret[]): Promise<void> {
+  public async runSecretsMigration(secrets: MnemonicSecret[]): Promise<void> {
     return new Promise((resolve, reject) => {
       if (secrets.every(isSecretMigrated)) {
         resolve()
@@ -50,7 +50,7 @@ export class MigrationService {
     })
   }
 
-  public filterMigratedSecrets(secrets: Secret[]): [Secret[], boolean] {
+  public filterMigratedSecrets(secrets: MnemonicSecret[]): [MnemonicSecret[], boolean] {
     // the migration is a one-time event, after it's run on every secret, they will stabilize on this condition
     if (secrets.every(isSecretMigrated)) {
       return [secrets, true]
@@ -68,36 +68,33 @@ export class MigrationService {
     return [wallets.filter(isWalletMigrated), false]
   }
 
-  public deepFilterMigratedSecretsAndWallets(secrets: Secret[]): [Secret[], boolean] {
+  public async deepFilterMigratedSecretsAndWallets(secrets: MnemonicSecret[]): Promise<[MnemonicSecret[], boolean]> {
     // the migration is a one-time event, after it's run on every secret, they will stabilize on this condition
     if (secrets.every(isSecretMigrated)) {
       return [secrets, true]
     }
 
+    const migratedSecrets: (MnemonicSecret | undefined)[] = await Promise.all(secrets.map(async (secret: MnemonicSecret) => {
+      if (!secret.fingerprint) {
+        return undefined
+      }
+
+      const [migratedWallets]: [AirGapWallet[], boolean] = this.filterMigratedWallets(secret.wallets)
+      if (migratedWallets.length === 0) {
+        return undefined
+      }
+
+      const newSecret: MnemonicSecret = MnemonicSecret.init(secret)
+      newSecret.wallets = migratedWallets
+
+      return newSecret
+    }))
+
     // create a new array of migrated secrets with filtered wallets
-    return [
-      secrets
-        .map((secret: Secret) => {
-          if (!secret.fingerprint) {
-            return undefined
-          }
-
-          const [migratedWallets]: [AirGapWallet[], boolean] = this.filterMigratedWallets(secret.wallets)
-          if (migratedWallets.length === 0) {
-            return undefined
-          }
-
-          const newSecret: Secret = Secret.init(secret)
-          newSecret.wallets = migratedWallets
-
-          return newSecret
-        })
-        .filter((secret: Secret | undefined) => secret !== undefined),
-      false
-    ]
+    return [migratedSecrets.filter((secret: MnemonicSecret | undefined) => secret !== undefined), false]
   }
 
-  public async migrateSecret(secret: Secret, options: { mnemonic?: string; persist?: boolean } = {}): Promise<void> {
+  public async migrateSecret(secret: MnemonicSecret, options: { mnemonic?: string; persist?: boolean } = {}): Promise<void> {
     const defaultOptions = {
       persist: false
     }
@@ -145,7 +142,7 @@ export class MigrationService {
     }
 
     let mnemonic: string | undefined = resolvedOptions.mnemonic
-    let secret: Secret | undefined
+    let secret: MnemonicSecret | undefined
     if (mnemonic === undefined || resolvedOptions.persist) {
       secret = this.secretsService.findByPublicKey(wallet.publicKey)
     }

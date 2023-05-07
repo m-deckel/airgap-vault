@@ -1,27 +1,38 @@
 import {
   AirGapAngularCoreModule,
   AirGapTranslateLoader,
+  AppInfo,
   APP_CONFIG,
   APP_INFO_PLUGIN,
+  APP_LAUNCHER_PLUGIN,
   APP_PLUGIN,
   ClipboardService,
   CLIPBOARD_PLUGIN,
   DeeplinkService,
   PermissionsService,
-  PERMISSIONS_PLUGIN,
   QrScannerService,
   SerializerService,
   SPLASH_SCREEN_PLUGIN,
   STATUS_BAR_PLUGIN,
-  UiEventService
+  FILESYSTEM_PLUGIN,
+  UiEventService,
+  IsolatedModules,
+  ISOLATED_MODULES_PLUGIN,
+  Zip,
+  ZIP_PLUGIN
 } from '@airgap/angular-core'
-import { AirGapAngularNgRxModule } from '@airgap/angular-ngrx'
+import { AirGapAngularNgRxModule, currencySymbolNgRxFacade } from '@airgap/angular-ngrx'
 import { PercentPipe } from '@angular/common'
 import { HttpClient, HttpClientModule } from '@angular/common/http'
-import { NgModule } from '@angular/core'
+import { ErrorHandler, NgModule } from '@angular/core'
 import { BrowserModule } from '@angular/platform-browser'
 import { RouteReuseStrategy } from '@angular/router'
-import { Plugins } from '@capacitor/core'
+import { App } from '@capacitor/app'
+import { AppLauncher } from '@capacitor/app-launcher'
+import { Clipboard } from '@capacitor/clipboard'
+import { SplashScreen } from '@capacitor/splash-screen'
+import { StatusBar } from '@capacitor/status-bar'
+import { FilePicker } from '@capawesome/capacitor-file-picker'
 import { DeviceMotion } from '@ionic-native/device-motion/ngx'
 import { Diagnostic } from '@ionic-native/diagnostic/ngx'
 import { IonicModule, IonicRouteStrategy, Platform } from '@ionic/angular'
@@ -33,7 +44,8 @@ import { TranslateLoader, TranslateModule } from '@ngx-translate/core'
 import { AppRoutingModule } from './app-routing.module'
 import { AppComponent } from './app.component'
 import * as fromRoot from './app.reducers'
-import { CAMERA_PREVIEW_PLUGIN, SAPLING_PLUGIN, SECURITY_UTILS_PLUGIN } from './capacitor-plugins/injection-tokens'
+import { CameraPreview, SaplingNative, SecurityUtils } from './capacitor-plugins/definitions'
+import { CAMERA_PREVIEW_PLUGIN, FILE_PICKER_PLUGIN, SAPLING_PLUGIN, SECURITY_UTILS_PLUGIN } from './capacitor-plugins/injection-tokens'
 import { appConfig } from './config/app-config'
 import { DistributionOnboardingPageModule } from './pages/distribution-onboarding/distribution-onboarding.module'
 import { IntroductionPageModule } from './pages/introduction/introduction.module'
@@ -56,6 +68,10 @@ import { SecureStorageService } from './services/secure-storage/secure-storage.s
 import { ShareUrlService } from './services/share-url/share-url.service'
 import { StartupChecksService } from './services/startup-checks/startup-checks.service'
 import { VaultStorageService } from './services/storage/storage.service'
+import { Filesystem } from '@capacitor/filesystem'
+import { InstallationTypePageModule } from './pages/Installation-type/installation-type.module'
+import { OnboardingAdvancedModePageModule } from './pages/onboarding-advanced-mode/onboarding-advanced-mode.module'
+import { OnboardingWelcomePageModule } from './pages/onboarding-welcome/onboarding-welcome.module'
 
 export function createTranslateLoader(http: HttpClient): AirGapTranslateLoader {
   return new AirGapTranslateLoader(http, { prefix: './assets/i18n/', suffix: '.json' })
@@ -91,22 +107,34 @@ export function createTranslateLoader(http: HttpClient): AirGapTranslateLoader {
     }),
     WarningModalPageModule,
     IntroductionPageModule,
+    InstallationTypePageModule,
+    OnboardingAdvancedModePageModule,
+    OnboardingWelcomePageModule,
     DistributionOnboardingPageModule,
     LocalAuthenticationOnboardingPageModule,
-    AirGapAngularCoreModule,
+    AirGapAngularCoreModule.forRoot({
+      factories: {
+        currencySymbolFacade: currencySymbolNgRxFacade
+      }
+    }),
     AirGapAngularNgRxModule
   ],
   providers: [
-    { provide: APP_PLUGIN, useValue: Plugins.App },
-    { provide: APP_INFO_PLUGIN, useValue: Plugins.AppInfo },
-    { provide: CAMERA_PREVIEW_PLUGIN, useValue: Plugins.CameraPreview },
-    { provide: CLIPBOARD_PLUGIN, useValue: Plugins.Clipboard },
-    { provide: PERMISSIONS_PLUGIN, useValue: Plugins.Permissions },
-    { provide: SAPLING_PLUGIN, useValue: Plugins.SaplingNative },
-    { provide: SECURITY_UTILS_PLUGIN, useValue: Plugins.SecurityUtils },
-    { provide: SPLASH_SCREEN_PLUGIN, useValue: Plugins.SplashScreen },
-    { provide: STATUS_BAR_PLUGIN, useValue: Plugins.StatusBar },
+    { provide: APP_PLUGIN, useValue: App },
+    { provide: APP_INFO_PLUGIN, useValue: AppInfo },
+    { provide: APP_LAUNCHER_PLUGIN, useValue: AppLauncher },
+    { provide: CAMERA_PREVIEW_PLUGIN, useValue: CameraPreview },
+    { provide: CLIPBOARD_PLUGIN, useValue: Clipboard },
+    { provide: FILESYSTEM_PLUGIN, useValue: Filesystem },
+    { provide: SAPLING_PLUGIN, useValue: SaplingNative },
+    { provide: SECURITY_UTILS_PLUGIN, useValue: SecurityUtils },
+    { provide: SPLASH_SCREEN_PLUGIN, useValue: SplashScreen },
+    { provide: STATUS_BAR_PLUGIN, useValue: StatusBar },
     { provide: APP_CONFIG, useValue: appConfig },
+    { provide: ZIP_PLUGIN, useValue: Zip },
+    { provide: FILE_PICKER_PLUGIN, useValue: FilePicker },
+    { provide: ISOLATED_MODULES_PLUGIN, useValue: IsolatedModules },
+    { provide: ErrorHandler, useClass: ErrorHandlerService },
     Diagnostic,
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     DeviceMotion,

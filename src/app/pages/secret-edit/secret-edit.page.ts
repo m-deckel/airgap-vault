@@ -1,15 +1,19 @@
 import { Component } from '@angular/core'
 import { PopoverController, Platform, ToastController, AlertController } from '@ionic/angular'
 
-import { Secret } from '../../models/secret'
+import { MnemonicSecret } from '../../models/secret'
 import { ErrorCategory, handleErrorLocal } from '../../services/error-handler/error-handler.service'
-import { InteractionSetting } from '../../services/interaction/interaction.service'
 import { NavigationService } from '../../services/navigation/navigation.service'
 import { SecretsService } from '../../services/secrets/secrets.service'
 
 import { SecretEditPopoverComponent } from './secret-edit-popover/secret-edit-popover.component'
 import { TranslateService } from '@ngx-translate/core'
 import { ClipboardService } from '@airgap/angular-core'
+import { AdvancedModeType, VaultStorageKey, VaultStorageService } from 'src/app/services/storage/storage.service'
+import { Observable } from 'rxjs'
+import { map } from 'rxjs/operators'
+import { LifehashService } from 'src/app/services/lifehash/lifehash.service'
+import { Router } from '@angular/router'
 
 export enum SecretEditAction {
   SET_RECOVERY_KEY
@@ -22,11 +26,16 @@ export enum SecretEditAction {
 })
 export class SecretEditPage {
   public isGenerating: boolean = false
-  public interactionSetting: boolean = false
 
   public isAndroid: boolean = false
 
-  public secret: Secret
+  public secret: MnemonicSecret
+
+  public lifehashData: string = ''
+
+  public isAppAdvancedMode$: Observable<boolean> = this.storageService
+    .subscribe(VaultStorageKey.ADVANCED_MODE_TYPE)
+    .pipe(map((res) => res === AdvancedModeType.ADVANCED))
 
   constructor(
     private readonly popoverCtrl: PopoverController,
@@ -36,18 +45,27 @@ export class SecretEditPage {
     private readonly clipboardService: ClipboardService,
     private readonly secretsService: SecretsService,
     private readonly navigationService: NavigationService,
-    private readonly platform: Platform
+    private readonly storageService: VaultStorageService,
+    private readonly lifehashService: LifehashService,
+    private readonly platform: Platform,
+    private readonly router: Router
   ) {
     if (this.navigationService.getState()) {
-      this.isGenerating = this.navigationService.getState().isGenerating
       this.secret = this.navigationService.getState().secret
 
-      this.interactionSetting = this.secret.interactionSetting !== InteractionSetting.UNDETERMINED
+      if (!this.secret) {
+        this.router.navigate(['/'])
+        throw new Error('[SecretEditPage]: No secret found! Navigating to home page.')
+      }
 
       this.isAndroid = this.platform.is('android')
 
       this.perform(this.navigationService.getState().action)
     }
+  }
+
+  public async ngOnInit() {
+    this.lifehashData = await this.lifehashService.generateLifehash(this.secret.fingerprint)
   }
 
   public async confirm(): Promise<void> {
@@ -61,14 +79,13 @@ export class SecretEditPage {
     }
 
     await this.dismiss()
-    if (this.isGenerating) {
-      this.navigationService.route('/account-add').catch(handleErrorLocal(ErrorCategory.IONIC_NAVIGATION))
-    }
+
+    this.navigationService.route('').catch(handleErrorLocal(ErrorCategory.IONIC_NAVIGATION))
   }
 
   public async dismiss(): Promise<boolean> {
     try {
-      return this.navigationService.routeToAccountsTab()
+      return this.navigationService.routeToSecretsTab()
     } catch (error) {
       return false
     }
@@ -125,7 +142,7 @@ export class SecretEditPage {
           handler: async (result: string[]) => {
             if (result.includes('understood')) {
               const entropy = await this.secretsService.retrieveEntropyForSecret(this.secret)
-              const secret = new Secret(entropy)
+              const secret = new MnemonicSecret(entropy)
               this.navigationService.routeWithState('secret-show', { secret: secret }).catch((err) => console.error(err))
             }
           }

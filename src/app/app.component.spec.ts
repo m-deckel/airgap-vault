@@ -1,36 +1,46 @@
-import { APP_PLUGIN, CLIPBOARD_PLUGIN, ProtocolService, SPLASH_SCREEN_PLUGIN, STATUS_BAR_PLUGIN } from '@airgap/angular-core'
+import { APP_PLUGIN, CLIPBOARD_PLUGIN, FILESYSTEM_PLUGIN, IsolatedModulesPlugin, ISOLATED_MODULES_PLUGIN, ProtocolService, SPLASH_SCREEN_PLUGIN, STATUS_BAR_PLUGIN, ZipPlugin, ZIP_PLUGIN } from '@airgap/angular-core'
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core'
 import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { AppPlugin } from '@capacitor/app'
+import { ClipboardPlugin } from '@capacitor/clipboard'
+import { FilesystemPlugin } from '@capacitor/filesystem'
+import { SplashScreenPlugin } from '@capacitor/splash-screen'
+import { StatusBarPlugin } from '@capacitor/status-bar'
 import { Platform } from '@ionic/angular'
 import { TranslateService } from '@ngx-translate/core'
+import {
+  createAppSpy,
+  createClipboardSpy,
+  createFilesystemSpy,
+  createIsolatedModulesSpy,
+  createSaplingSpy,
+  createSecurityUtilsSpy,
+  createSplashScreenSpy,
+  createStatusBarSpy,
+  createZipSpy
+} from 'test-config/plugins-mocks'
 
 import { UnitHelper } from './../../test-config/unit-test-helper'
 import { AppComponent } from './app.component'
+import { SaplingNativePlugin, SecurityUtilsPlugin } from './capacitor-plugins/definitions'
+import { SAPLING_PLUGIN, SECURITY_UTILS_PLUGIN } from './capacitor-plugins/injection-tokens'
+import { IACService } from './services/iac/iac.service'
 import { NavigationService } from './services/navigation/navigation.service'
 import { SecretsService } from './services/secrets/secrets.service'
 import { SecureStorageServiceMock } from './services/secure-storage/secure-storage.mock'
 import { SecureStorageService } from './services/secure-storage/secure-storage.service'
 import { StartupChecksService } from './services/startup-checks/startup-checks.service'
-import { StatusBarPlugin, SplashScreenPlugin, AppPlugin, ClipboardPlugin } from '@capacitor/core'
-import { SAPLING_PLUGIN, SECURITY_UTILS_PLUGIN } from './capacitor-plugins/injection-tokens'
-import { SaplingPlugin, SecurityUtilsPlugin } from './capacitor-plugins/definitions'
-import {
-  createAppSpy,
-  createClipboardSpy,
-  createSaplingSpy,
-  createSecurityUtilsSpy,
-  createSplashScreenSpy,
-  createStatusBarSpy
-} from 'test-config/plugins-mocks'
-import { IACService } from './services/iac/iac.service'
 
 describe('AppComponent', () => {
   let appSpy: AppPlugin
-  let saplingSpy: SaplingPlugin
+  let saplingSpy: SaplingNativePlugin
   let securityUtilsSpy: SecurityUtilsPlugin
   let statusBarSpy: StatusBarPlugin
   let splashScreenSpy: SplashScreenPlugin
   let clipboardSpy: ClipboardPlugin
+  let filesystemSpy: FilesystemPlugin
+  let zipSpy: ZipPlugin
+  let isolatedModulesSpy: IsolatedModulesPlugin
   let platformReadySpy: Promise<void>
   let platformSpy: Platform
   // let component: AppComponent
@@ -43,6 +53,9 @@ describe('AppComponent', () => {
     statusBarSpy = createStatusBarSpy()
     splashScreenSpy = createSplashScreenSpy()
     clipboardSpy = createClipboardSpy()
+    filesystemSpy = createFilesystemSpy()
+    zipSpy = createZipSpy()
+    isolatedModulesSpy = createIsolatedModulesSpy()
     platformReadySpy = Promise.resolve()
     platformSpy = jasmine.createSpyObj('Platform', { ready: platformReadySpy })
 
@@ -59,6 +72,9 @@ describe('AppComponent', () => {
           { provide: STATUS_BAR_PLUGIN, useValue: statusBarSpy },
           { provide: SPLASH_SCREEN_PLUGIN, useValue: splashScreenSpy },
           { provide: CLIPBOARD_PLUGIN, useValue: clipboardSpy },
+          { provide: FILESYSTEM_PLUGIN, useValue: filesystemSpy },
+          { provide: ZIP_PLUGIN, useValue: zipSpy },
+          { provide: ISOLATED_MODULES_PLUGIN, useValue: isolatedModulesSpy },
           { provide: Platform, useValue: platformSpy },
           StartupChecksService,
           IACService,

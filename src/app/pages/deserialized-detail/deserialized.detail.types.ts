@@ -1,12 +1,12 @@
+import { IACContext } from '@airgap/angular-core'
 import {
   AirGapWallet,
   IAirGapTransaction,
-  MessageSignRequest,
-  MessageSignResponse,
   ProtocolSymbols,
   SignedTransaction,
   UnsignedTransaction
 } from '@airgap/coinlib-core'
+import { MessageSignRequest, MessageSignResponse } from '@airgap/serializer'
 
 export enum Mode {
   SIGN_TRANSACTION = 0,
@@ -49,7 +49,9 @@ export interface DeserializedUnsignedTransaction {
   id: number
   details: IAirGapTransaction[]
   data: UnsignedTransaction
+  iacContext?: IACContext
   wallet: AirGapWallet
+  originalProtocolIdentifier?: ProtocolSymbols
 }
 
 export interface DeserializedSignedTransaction {
@@ -57,7 +59,9 @@ export interface DeserializedSignedTransaction {
   id: number
   details: IAirGapTransaction[]
   data: SignedTransaction & Pick<UnsignedTransaction, 'callbackURL'>
+  iacContext?: IACContext
   wallet: AirGapWallet
+  originalProtocolIdentifier?: ProtocolSymbols
 }
 
 export type DeserializedTransaction = DeserializedUnsignedTransaction | DeserializedSignedTransaction
@@ -73,8 +77,10 @@ export interface DeserializedUnsignedMessage {
   id: number
   protocol: ProtocolSymbols | undefined
   data: MessageSignRequest
+  iacContext?: IACContext
   blake2bHash: string | undefined
   wallet: AirGapWallet | undefined
+  originalProtocolIdentifier?: ProtocolSymbols
 }
 
 export interface DeserializedSignedMessage {
@@ -82,7 +88,9 @@ export interface DeserializedSignedMessage {
   id: number
   protocol: ProtocolSymbols | undefined
   data: MessageSignResponse & Pick<MessageSignRequest, 'callbackURL'>
+  iacContext?: IACContext
   wallet: AirGapWallet | undefined
+  originalProtocolIdentifier?: ProtocolSymbols
 }
 
 export type DeserializedMessage = DeserializedUnsignedMessage | DeserializedSignedMessage
